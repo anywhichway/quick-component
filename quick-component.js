@@ -1,7 +1,11 @@
 async function importComponent(url, options={}) {
     url = new URL(url, document.baseURI);
     let as = options.as;
-    const filename = url.pathname.split("/").pop();
+    let filename = url.pathname.split("/").pop();
+    // remove version info
+    if(filename.includes("@")) {
+        filename = filename.substring(0,filename.indexOf("@"));
+    }
     if(!as) {
         const parts = filename.split(".");
         as = parts[parts.length - 2];
@@ -502,5 +506,10 @@ document.body.appendChild(el);
 }
 quickComponent.src = document.currentScript.getAttribute("src");
 if(document.currentScript.hasAttribute("component")) {
-    importComponent(document.currentScript.getAttribute("component"),{as:document.currentScript.getAttribute("as")})
+    const script = document.currentScript,
+        isolate = script.hasAttribute("isolate") || undefined,
+        allow = script.getAttribute("allow") || undefined,
+        referrerpolicy = script.getAttribute("referrerpolicy") || undefined,
+        sandbox = script.getAttribute("sandbox") || undefined;
+    importComponent(document.currentScript.getAttribute("component"),{as:document.currentScript.getAttribute("as"),isolate,allow,referrerpolicy,sandbox})
 }
