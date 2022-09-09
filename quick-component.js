@@ -7,8 +7,7 @@
     }
     return false;
 }*/
-
-const importComponent = async (url, options={}) => {
+async function importComponent(url, options={}) {
     url = new URL(url, document.baseURI);
     let as = options.as;
     const filename = url.pathname.split("/").pop();
@@ -136,22 +135,22 @@ async function quickComponent(options) {
         }
         compile(node,root=node) {
             const proxy = new Proxy(this,{
-                    get(target,name) {
-                        const value = target[name],
-                            vtype = typeof(value);
-                        if(!node.quickCompiled && typeof(name)!=="symbol" && vtype!=="function") {
-                            target.#monitorProperties(() => node.render(),[name]);
-                        }
-                        return vtype==="function" ? value.bind(target) : value;
+                get(target,name) {
+                    const value = target[name],
+                        vtype = typeof(value);
+                    if(!node.quickCompiled && typeof(name)!=="symbol" && vtype!=="function") {
+                        target.#monitorProperties(() => node.render(),[name]);
                     }
-                });
+                    return vtype==="function" ? value.bind(target) : value;
+                }
+            });
             if(node.nodeType===Node.TEXT_NODE) {
                 if(node.textContent.includes("${")) {
                     const template = node.textContent
                     node.render = (value) => {
                         const el = document.activeElement;
-                            //selectionStart = el ? el.selectionStart : null,
-                            //selectionEnd = el ? el.selectionEnd : null;
+                        //selectionStart = el ? el.selectionStart : null,
+                        //selectionEnd = el ? el.selectionEnd : null;
                         try {
                             currentNode = node;
                             (new Function("proxy","currentNode","with(proxy) { currentNode.textContent = `" + (value!=null ? value : template) + "`; }"))(proxy,node);
@@ -170,8 +169,8 @@ async function quickComponent(options) {
                     const template = node.value
                     node.render = (value) => {
                         const el = document.activeElement;
-                            //selectionStart = el ? el.selectionStart : null,
-                            //selectionEnd = el ? el.selectionEnd : null;
+                        //selectionStart = el ? el.selectionStart : null,
+                        //selectionEnd = el ? el.selectionEnd : null;
                         try {
                             currentNode = node;
                             (new Function("proxy","currentNode","with(proxy) { currentNode.value = `" + (value!=null ? value : template) + "`; }"))(proxy,node);
@@ -362,11 +361,11 @@ async function quickComponent(options) {
                         this.shadowRoot.innerHTML = html;
                     }
                     //if(el && selectionStart!=null && el.setSelectionRange) {
-                     //   el.setSelectionRange(selectionStart,selectionEnd);
+                    //   el.setSelectionRange(selectionStart,selectionEnd);
                     //}
                     if(this.rendered) this.rendered();
                 }
-           }
+            }
         }
         #sharedCallback(name,oldValue,newValue) {
             instances.forEach((instance) => {
@@ -445,7 +444,7 @@ async function quickComponent(options) {
                 });
                 const iframe = document.createElement("iframe"),
                     src = new URL(quickComponent.src,window.location).href,
-text = `<!DOCTYPE html>
+                    text = `<!DOCTYPE html>
 <html><head><base href="${window.location.href}"></head>
 <body>
 <script src="${src}"></script>
