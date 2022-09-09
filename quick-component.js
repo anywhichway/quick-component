@@ -1,12 +1,3 @@
-/*const inContentEditable = (node) => {
-    while(node) {
-        if(node.getAttribute && node.getAttribute("contenteditable")==="true") {
-            return true;
-        }
-        node = node.parentElement || node.host;
-    }
-    return false;
-}*/
 async function importComponent(url, options={}) {
     url = new URL(url, document.baseURI);
     let as = options.as;
@@ -79,12 +70,6 @@ async function quickComponent(options) {
             if(!scripts) {
                 scripts = [];
                 [...this.shadowRoot.querySelectorAll("script")].forEach((script,index) => {
-                    if(index===0) {
-                        const vars = document.createElement("script");
-                        vars.innerHTML = `var as = "${as}", self = window.currentComponent;`
-                        scripts.push({replacement:vars});
-                        //script.insertAdjacentElement("beforebegin",vars);
-                    }
                     const node = document.createElement("script");
                     [...script.attributes].forEach((attr) => node.setAttribute(attr.name,attr.value));
                     if(node.hasAttribute("src") || node.hasAttribute("async")) {
@@ -92,11 +77,10 @@ async function quickComponent(options) {
                         scripts.push({script,replacement:node});
                     } else {
                         const vartype = script.getAttribute("type")==="module" ? "const" : "var";
-                        let vars = `${vartype} as = "${as}", self = window.currentComponent;`;
-                        node.innerHTML = vars + script.innerText;
+                        let vars = `const as = "${as}", self = window.currentComponent;`;
+                        node.innerHTML = `(() => { const as = "${as}", self = window.currentComponent; ${script.innerText} })()`;
                         scripts.push({script,replacement:node});
                     }
-                    document.addEventListener("DOMContentLoaded",() => { var as = undefined, self = window; delete window.currentComponent; });
                 });
             }
             if(options.isolated) {
@@ -294,9 +278,6 @@ async function quickComponent(options) {
             })
             this.#monitorAttributes(importedAttributes,attributes);
         }
-        /*get inContentEditable() {
-            return inContentEditable(this);
-        }*/
         get isCustomElement() {
             return true;
         }
@@ -493,9 +474,6 @@ document.body.appendChild(el);
                     this.shadowRoot.firstElementChild.contentWindow.postMessage(`function(){ this.innerHTML = "${this.innerHTML}"; }`,"*");
                 },100);
             }
-            /*get inContentEditable() {
-                return inContentEditable(this);
-            }*/
             get isCustomElement() {
                 return true;
             }
