@@ -73,7 +73,11 @@ async function quickComponent(options) {
         }
     }
     [...dom.body.querySelectorAll('script[src^="."]')].forEach((script) => {
-        script.setAttribute("src",new URL(script.getAttribute("src"),href).href);
+        let src = script.getAttribute("src");
+        if(src.startsWith("./index.js")) {
+            script.setAttribute("nocache","");
+        }
+        script.setAttribute("src",new URL(src,href).href);
     });
     const instances = new Set(),
         observedAttributes = new Set(),
@@ -90,9 +94,15 @@ async function quickComponent(options) {
             this.shadowRoot.innerHTML = dom.body.innerHTML;
             const scripts = this.shadowRoot.scripts = [];
             [...this.shadowRoot.querySelectorAll("script")].forEach((script,index) => {
-                const node = document.createElement("script");
+                const node = document.createElement("script"),
+                    src = script.getAttribute("src");
                 [...script.attributes].forEach((attr) => node.setAttribute(attr.name,attr.value));
-                if(node.hasAttribute("src") || node.hasAttribute("async")) {
+                if(src || node.hasAttribute("async")) {
+                    if(node.hasAttribute("nocache")) {
+                        const url  = new URL(src);
+                        url.search += "&random=" + Math.random();
+                        node.setAttribute("src",url.href);
+                    }
                     node.innerHTML = script.innerText;
                     scripts.push({script,replacement:node});
                 } else {
@@ -152,12 +162,17 @@ async function quickComponent(options) {
                     const template = node.textContent
                     node.render = (value) => {
                         const el = document.activeElement;
+                        //selectionStart = el ? el.selectionStart : null,
+                        //selectionEnd = el ? el.selectionEnd : null;
                         try {
                             currentNode = node;
                             (new Function("proxy","currentNode","with(proxy) { currentNode.textContent = `" + (value!=null ? value : template) + "`; }"))(proxy,node);
                         } catch(e) {
 
                         }
+                        //if(el && selectionStart!=null && el.setSelectionRange) {
+                        //    el.setSelectionRange(selectionStart,selectionEnd);
+                        //}
                         if(root.rendered) root.rendered();
                     }
                     node.render();
@@ -167,12 +182,17 @@ async function quickComponent(options) {
                     const template = node.value
                     node.render = (value) => {
                         const el = document.activeElement;
+                        //selectionStart = el ? el.selectionStart : null,
+                        //selectionEnd = el ? el.selectionEnd : null;
                         try {
                             currentNode = node;
                             (new Function("proxy","currentNode","with(proxy) { currentNode.value = `" + (value!=null ? value : template) + "`; }"))(proxy,node);
                         } catch(e) {
 
                         }
+                        //if(el && selectionStart!=null && el.setSelectionRange) {
+                        //    el.setSelectionRange(selectionStart,selectionEnd);
+                        //}
                         if(root.rendered) root.rendered();
                     }
                     node.render();
@@ -189,6 +209,7 @@ async function quickComponent(options) {
         }
         async connectedCallback() {
             // process the scripts collected in the constructor
+            //let item;
             for(const item of this.shadowRoot.scripts) {
                 const {script,replacement} = item;
                 await new Promise((resolve) => {

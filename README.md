@@ -6,7 +6,7 @@ A small utility for rapidly creating remotely loadable, on-demand, isolatable we
 The easiest way to use `@anywhichway/quick-component` is to load both it and the component it is using from a CDN, e.g.
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@anywhichway/quick-component.js@0.0.5" 
+<script src="https://cdn.jsdelivr.net/npm/@anywhichway/quick-component.js@0.0.6" 
         component="https://cdn.jsdelivr.net/npm/@anywhichway/repl-host@0.0.3"></script>
 ```
 
@@ -25,5 +25,7 @@ To be written.
 
 # Version History (reverse chronological order)
 
+2022-09-10 v0.0.6 Ensure that components defined using `./index.js` do not cache the `./index.js` file since it needs
+to be applied every time an element is created.
 2022-09-10 v0.0.5 Added documentation and better support for loading both module and regular script based components.
 
