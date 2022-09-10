@@ -1,3 +1,21 @@
+if(typeof(currentComponent)==="undefined") {
+    window.currentComponent = function currentComponent(key,component) {
+        if(component) {
+            const components = currentComponent.map.get(key)||[];
+            components.push(component);
+            currentComponent.map.set(key,components);
+            return component;
+        }
+        const components = currentComponent.map.get(key);
+        if(components) {
+            component = components.shift();
+        }
+        if(components.length===0) currentComponent.map.delete(key);
+        return component;
+    }
+    currentComponent.map = new Map();
+}
+
 async function importComponent(url, options={}) {
     url = new URL(url, document.baseURI);
     let as = options.as;
@@ -62,7 +80,7 @@ async function quickComponent(options) {
         reactiveAttributes = new Set(),
         sharedAttributes = new Set(),
         importedAttributes = new Set();
-    let currentNode, scripts;
+    let currentNode;
     class CustomElement extends HTMLElement {
         static get tagName() { return as.toUpperCase(); }
         constructor() {
@@ -70,23 +88,20 @@ async function quickComponent(options) {
             instances.add(this);
             this.attachShadow({mode:"open"});
             this.shadowRoot.innerHTML = dom.body.innerHTML;
-            window.currentComponent = this;
-            if(!scripts) {
-                scripts = [];
-                [...this.shadowRoot.querySelectorAll("script")].forEach((script,index) => {
-                    const node = document.createElement("script");
-                    [...script.attributes].forEach((attr) => node.setAttribute(attr.name,attr.value));
-                    if(node.hasAttribute("src") || node.hasAttribute("async")) {
-                        node.innerHTML = script.innerText;
-                        scripts.push({script,replacement:node});
-                    } else {
-                        const vartype = script.getAttribute("type")==="module" ? "const" : "var";
-                        let vars = `const as = "${as}", self = window.currentComponent;`;
-                        node.innerHTML = `(() => { const as = "${as}", self = window.currentComponent; ${script.innerText} })()`;
-                        scripts.push({script,replacement:node});
-                    }
-                });
-            }
+            const scripts = this.shadowRoot.scripts = [];
+            [...this.shadowRoot.querySelectorAll("script")].forEach((script,index) => {
+                const node = document.createElement("script");
+                [...script.attributes].forEach((attr) => node.setAttribute(attr.name,attr.value));
+                if(node.hasAttribute("src") || node.hasAttribute("async")) {
+                    node.innerHTML = script.innerText;
+                    scripts.push({script,replacement:node});
+                } else {
+                    const vartype = script.getAttribute("type")==="module" ? "const" : "var";
+                    let vars = `const as = "${as}", self = window.currentComponent;`;
+                    node.innerHTML = `(() => { const as = "${as}", self = window.currentComponent; ${script.innerText} })()`;
+                    scripts.push({script,replacement:node});
+                }
+            });
             if(options.isolated) {
                 let ownerWindow;
                 const mutationObserver = new MutationObserver(() => {
@@ -137,17 +152,12 @@ async function quickComponent(options) {
                     const template = node.textContent
                     node.render = (value) => {
                         const el = document.activeElement;
-                        //selectionStart = el ? el.selectionStart : null,
-                        //selectionEnd = el ? el.selectionEnd : null;
                         try {
                             currentNode = node;
                             (new Function("proxy","currentNode","with(proxy) { currentNode.textContent = `" + (value!=null ? value : template) + "`; }"))(proxy,node);
                         } catch(e) {
 
                         }
-                        //if(el && selectionStart!=null && el.setSelectionRange) {
-                        //    el.setSelectionRange(selectionStart,selectionEnd);
-                        //}
                         if(root.rendered) root.rendered();
                     }
                     node.render();
@@ -157,17 +167,12 @@ async function quickComponent(options) {
                     const template = node.value
                     node.render = (value) => {
                         const el = document.activeElement;
-                        //selectionStart = el ? el.selectionStart : null,
-                        //selectionEnd = el ? el.selectionEnd : null;
                         try {
                             currentNode = node;
                             (new Function("proxy","currentNode","with(proxy) { currentNode.value = `" + (value!=null ? value : template) + "`; }"))(proxy,node);
                         } catch(e) {
 
                         }
-                        //if(el && selectionStart!=null && el.setSelectionRange) {
-                        //    el.setSelectionRange(selectionStart,selectionEnd);
-                        //}
                         if(root.rendered) root.rendered();
                     }
                     node.render();
@@ -184,13 +189,18 @@ async function quickComponent(options) {
         }
         async connectedCallback() {
             // process the scripts collected in the constructor
-            let item;
-            while(item = scripts.shift()) {
+            for(const item of this.shadowRoot.scripts) {
                 const {script,replacement} = item;
                 await new Promise((resolve) => {
+                    const src = replacement.getAttribute("src");
+                    if(src) {
+                        window.currentComponent(new URL(src,document.baseURI).href,this);
+                    } else {
+                        window.currentComponent(replacement,this);
+                    }
                     if(script) script.replaceWith(replacement);
                     else this.appendChild(replacement);
-                    if(replacement.hasAttribute("src") || replacement.hasAttribute("async")) {
+                    if(src || replacement.hasAttribute("async")) {
                         replacement.addEventListener("load",() => {
                             replacement.remove();
                             resolve();
@@ -314,7 +324,7 @@ async function quickComponent(options) {
         }
         properties(props={}) {
             Object.entries(props).forEach(([key,value]) => {
-                CustomElement.prototype[key] = value;
+                this[key] = value;
             });
         }
         #propertyChangedCallback(name, oldValue, newValue) {
