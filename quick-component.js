@@ -542,5 +542,9 @@ if(document.currentScript.hasAttribute("component")) {
         allow = script.getAttribute("allow") || undefined,
         referrerpolicy = script.getAttribute("referrerpolicy") || undefined,
         sandbox = script.getAttribute("sandbox") || undefined;
-    importComponent(document.currentScript.getAttribute("component"),{as:document.currentScript.getAttribute("as"),isolate,allow,referrerpolicy,sandbox})
+    let imports = script.getAttribute("import") || '["link","style","script"]';
+    if(imports) {
+        imports = JSON.parse(imports);
+    }
+    importComponent(document.currentScript.getAttribute("component"),{as:document.currentScript.getAttribute("as"),import:imports,isolate,allow,referrerpolicy,sandbox})
 }
