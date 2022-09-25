@@ -43,8 +43,12 @@ To be written.
 
 # Version History (reverse chronological order)
 
+2022-09-25 v0.0.8 Optimized to reduce frequency of loading component scripts.
+
 2022-09-10 v0.0.7 Added support for imports then loading components via a script tag.
+
 2022-09-10 v0.0.6 Ensure that components defined using `./index.js` do not cache the `./index.js` file since it needs
 to be applied every time an element is created.
+
 2022-09-10 v0.0.5 Added documentation and better support for loading both module and regular script based components.
 

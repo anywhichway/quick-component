@@ -7,10 +7,8 @@ if(typeof(currentComponent)==="undefined") {
             return component;
         }
         const components = currentComponent.map.get(key);
-        if(components) {
-            component = components.shift();
-        }
-        if(components.length===0) currentComponent.map.delete(key);
+        if(components) component = components.shift();
+        if(components?.length===0) currentComponent.map.delete(key);
         return component;
     }
     currentComponent.map = new Map();
@@ -21,9 +19,7 @@ async function importComponent(url, options={}) {
     let as = options.as;
     let filename = url.pathname.split("/").pop();
     // remove version info
-    if(filename.includes("@")) {
-        filename = filename.substring(0,filename.indexOf("@"));
-    }
+    if(filename.includes("@")) filename = filename.substring(0,filename.indexOf("@"));
     if(!as) {
         const parts = filename.split(".");
         as = parts[parts.length - 2];
@@ -72,18 +68,31 @@ async function quickComponent(options) {
             }
         }
     }
-    [...dom.body.querySelectorAll('script[src^="."]')].forEach((script) => {
-        let src = script.getAttribute("src");
-        if(src.startsWith("./index.js")) {
-            script.setAttribute("nocache","");
-        }
-        script.setAttribute("src",new URL(src,href).href);
-    });
+    for(const script of [...dom.body.querySelectorAll('script[src]')]) {
+        const src = new URL(script.getAttribute("src"),href).href;
+        script.removeAttribute("src");
+        const text = await fetch(src).then((response) => response.text());
+        script.innerHTML = text;
+    }
     const instances = new Set(),
         observedAttributes = new Set(),
         reactiveAttributes = new Set(),
         sharedAttributes = new Set(),
-        importedAttributes = new Set();
+        importedAttributes = new Set(),
+        compileNode = (proxy,node,property,root) => {
+            const template = node[property];
+            node.render = (value) => {
+                const el = document.activeElement;
+                try {
+                    currentNode = node;
+                    (new Function("proxy","currentNode","with(proxy) { currentNode." + property + " = `" + (value!=null ? value : template) + "`; }"))(proxy,node);
+                } catch(e) {
+
+                }
+                if(root.rendered) root.rendered();
+            }
+            return node;
+        };
     let currentNode;
     class CustomElement extends HTMLElement {
         static get tagName() { return as.toUpperCase(); }
@@ -95,20 +104,17 @@ async function quickComponent(options) {
             const scripts = this.shadowRoot.scripts = [];
             [...this.shadowRoot.querySelectorAll("script")].forEach((script,index) => {
                 const node = document.createElement("script"),
-                    src = script.getAttribute("src");
+                    type = script.getAttribute("type");
                 [...script.attributes].forEach((attr) => node.setAttribute(attr.name,attr.value));
-                if(src || node.hasAttribute("async")) {
-                    if(node.hasAttribute("nocache")) {
-                        const url  = new URL(src);
-                        url.search += "&random=" + Math.random();
-                        node.setAttribute("src",url.href);
-                    }
-                    node.innerHTML = script.innerText;
+                if(type==="module") {
+                    const locator = Math.random()+"";
+                    window.currentComponent(locator,this);
+                    node.innerHTML = `const as = "${as}", self = window.currentComponent("${locator}");\n ${script.innerText};\nself.dispatchEvent(new Event("scriptExecuted"));`;
                     scripts.push({script,replacement:node});
                 } else {
-                    const vartype = script.getAttribute("type")==="module" ? "const" : "var";
-                    let vars = `const as = "${as}", self = window.currentComponent;`;
-                    node.innerHTML = `(() => { const as = "${as}", self = window.currentComponent; ${script.innerText} })()`;
+                    const locator = Math.random()+"";
+                    window.currentComponent(locator,this);
+                    node.innerHTML = `(() => { \nconst as = "${as}", self = window.currentComponent("${locator}");\n ${script.innerText};\nself.dispatchEvent(new Event("scriptExecuted"));\n })()`;
                     scripts.push({script,replacement:node});
                 }
             });
@@ -158,45 +164,9 @@ async function quickComponent(options) {
                 }
             });
             if(node.nodeType===Node.TEXT_NODE) {
-                if(node.textContent.includes("${")) {
-                    const template = node.textContent
-                    node.render = (value) => {
-                        const el = document.activeElement;
-                        //selectionStart = el ? el.selectionStart : null,
-                        //selectionEnd = el ? el.selectionEnd : null;
-                        try {
-                            currentNode = node;
-                            (new Function("proxy","currentNode","with(proxy) { currentNode.textContent = `" + (value!=null ? value : template) + "`; }"))(proxy,node);
-                        } catch(e) {
-
-                        }
-                        //if(el && selectionStart!=null && el.setSelectionRange) {
-                        //    el.setSelectionRange(selectionStart,selectionEnd);
-                        //}
-                        if(root.rendered) root.rendered();
-                    }
-                    node.render();
-                }
+                if(node.textContent.includes("${")) compileNode(proxy,node,"textContent",root).render();
             } else if(node.nodeType===Node.ATTRIBUTE_NODE) {
-                if(node.value?.includes("${")) {
-                    const template = node.value
-                    node.render = (value) => {
-                        const el = document.activeElement;
-                        //selectionStart = el ? el.selectionStart : null,
-                        //selectionEnd = el ? el.selectionEnd : null;
-                        try {
-                            currentNode = node;
-                            (new Function("proxy","currentNode","with(proxy) { currentNode.value = `" + (value!=null ? value : template) + "`; }"))(proxy,node);
-                        } catch(e) {
-
-                        }
-                        //if(el && selectionStart!=null && el.setSelectionRange) {
-                        //    el.setSelectionRange(selectionStart,selectionEnd);
-                        //}
-                        if(root.rendered) root.rendered();
-                    }
-                    node.render();
-                }
+                if(node.value?.includes("${")) compileNode(proxy,node,"value",root).render();
             } else if(node.nodeType === Node.ELEMENT_NODE) {
                 if(node.tagName!=="SCRIPT") {
                     [...node.attributes].forEach((attr) => { this.compile(attr,root); });
@@ -213,57 +183,42 @@ async function quickComponent(options) {
             for(const item of this.shadowRoot.scripts) {
                 const {script,replacement} = item;
                 await new Promise((resolve) => {
-                    const src = replacement.getAttribute("src");
-                    if(src) {
-                        window.currentComponent(new URL(src,document.baseURI).href,this);
-                    } else {
-                        window.currentComponent(replacement,this);
-                    }
+                    const src = replacement.getAttribute("src"),
+                        type = replacement.getAttribute("type");
                     if(script) script.replaceWith(replacement);
                     else this.appendChild(replacement);
-                    if(src || replacement.hasAttribute("async")) {
-                        replacement.addEventListener("load",() => {
+                    if(src) {
+                        this.addEventListener("scriptExecuted",() => {
                             replacement.remove();
                             resolve();
                         });
                     } else {
-                        replacement.remove();
-                        resolve();
+                        //replacement.remove();
+                        //resolve();
+                        this.addEventListener("scriptExecuted",() => {
+                            replacement.remove();
+                            resolve();
+                        });
                     }
                 })
             }
             const instance = [...instances][0];
-            if(instance) { // get shared values from another instance, all instances will be the same, so only need to access one
-                sharedAttributes.forEach((attributeName) => {
-                    this.setAttribute(attributeName,instance.getAttribute(attributeName));
-                })
-            }
-            if(this.initialize) {
-                this.initialize();
-            }
-            if(!this.render) { // developer did not provide a custom render, so string templates being used
-                this.compile(this.shadowRoot,this);
-            }
+            // get shared values from another instance, all instances will be the same, so only need to access one
+            if(instance) sharedAttributes.forEach((attributeName) => this.setAttribute(attributeName,instance.getAttribute(attributeName)))
+            if(this.initialize) this.initialize();
+            // developer did not provide a custom render, so string templates being used
+            if(!this.render) this.compile(this.shadowRoot,this);
             let result;
-            if(this.connected) { // call the connected function, if any, provided by developer
-                result = this.connected();
-            }
+            // call the connected function, if any, provided by developer
+            if(this.connected) result = this.connected();
             await result; // await the connected result, if any, in case it is async
             const desc = Object.getOwnPropertyDescriptor(Element.prototype,"innerHTML");
             Object.defineProperty(this,"innerHTML",{
                 set(value) {
                     desc.set.call(this,value);
                     if(this.render) {
-                        const el = document.activeElement,
-                            selectionStart = el ? el.selectionStart : null,
-                            selectionEnd = el ? el.selectionEnd : null;
                         this.render();
-                        if(el && selectionStart!=null && el.setSelectionRange) {
-                            el.setSelectionRange(selectionStart,selectionEnd);
-                        }
-                        if(this.rendered) {
-                            this.rendered();
-                        }
+                        if(this.rendered) this.rendered();
                     }
                     return true;
                 },
@@ -275,9 +230,7 @@ async function quickComponent(options) {
             this.#reactiveCallback(); // try reactive callbacks, primarily rendering
         }
         disconnectedCallback() {
-            if(this.disconnected) {
-                this.disconnected();
-            }
+            if(this.disconnected) this.disconnected();
         }
         exported(properties=[]) {
             if(!Array.isArray(properties)) {
@@ -287,45 +240,38 @@ async function quickComponent(options) {
                 });
                 properties = Object.keys(properties);
             }
-            this.#monitorProperties((name,oldValue,newValue) => {
-                this.setAttribute(name,newValue);
-            },properties);
+            this.#monitorProperties((name,oldValue,newValue) => this.setAttribute(name,newValue),properties);
         }
         imported(attributes=[]) {
             if(!Array.isArray(attributes)) {
                 Object.entries(attributes).forEach(([name,value]) => {
-                    if(!this.hasAttribute(name)) this.setAttribute(name,typeof(value)==="string" ? value : JSON.stringify(value));
+                    if(this.hasAttribute("name")) {
+                        value = this.getAttribute(name);
+                        try {
+                            this[name] = JSON.parse(value);
+                        } catch(e) {
+                            this[name] = value;
+                        }
+                    } else {
+                        this[name] = value;
+                        this.setAttribute(name,typeof(value)==="string" ? value : JSON.stringify(value));
+                    }
                 });
                 attributes = Object.keys(attributes);
             }
-            const proto = Object.getPrototypeOf(this),
-                self = this;
-            attributes.forEach((name) => {
-                Object.defineProperty(proto,name,{configurable:true,enumerable:true,get() {
-                        let value = self.getAttribute(name);
-                        try {
-                            value = JSON.parse(value);
-                        } catch(e) {
-
-                        }
-                        return value;
-                    }})
-            })
             this.#monitorAttributes(importedAttributes,attributes);
         }
         get isCustomElement() {
             return true;
         }
         #monitorAttributes(attributeNames,monitor) {
-            monitor.forEach((attributeName) => {
-                attributeNames.add(attributeName);
-            })
+            monitor.forEach((attributeName) => attributeNames.add(attributeName));
         }
         #monitorProperties(callback,monitor) {
             const proto = Object.getPrototypeOf(this);
             monitor.forEach((propertyName) => {
-                const desc = Object.getOwnPropertyDescriptor(proto,propertyName)||{value:this[propertyName],configurable:true};
-                Object.defineProperty(proto,propertyName,{
+                const desc = Object.getOwnPropertyDescriptor(this,propertyName)||{value:this[propertyName],configurable:true};
+                Object.defineProperty(this,propertyName,{
                     get() {
                         return desc.get ? desc.get() : desc.value;
                     },
@@ -344,9 +290,7 @@ async function quickComponent(options) {
             this.#monitorProperties(propertyChangedCallback.bind(this),properties);
         }
         properties(props={}) {
-            Object.entries(props).forEach(([key,value]) => {
-                this[key] = value;
-            });
+            Object.entries(props).forEach(([key,value]) => this[key] = value);
         }
         #propertyChangedCallback(name, oldValue, newValue) {
             if(this.propertyChanged) this.propertyChanged(name,oldValue,newValue);
@@ -376,34 +320,31 @@ async function quickComponent(options) {
                     } else {
                         this.shadowRoot.innerHTML = html;
                     }
-                    //if(el && selectionStart!=null && el.setSelectionRange) {
-                    //   el.setSelectionRange(selectionStart,selectionEnd);
-                    //}
                     if(this.rendered) this.rendered();
                 }
             }
         }
         #sharedCallback(name,oldValue,newValue) {
-            instances.forEach((instance) => {
-                instance[name] = newValue;
-            })
+            instances.forEach((instance) => instance[name] = newValue)
         }
         setAttribute(name,value) {
             const oldValue = this.getAttribute(name);
             if(oldValue!==value && value!==undefined) {
                 super.setAttribute(name,value);
+                if(importedAttributes.has(name)) {
+                    try {
+                        this[name] = JSON.parse(value);
+                    } catch(e) {
+                        this[name] = value;
+                    }
+                }
                 if(observedAttributes.has(name) ||  CustomElement.observedAttributes.has(name)) {
                     this.attributeChangedCallback(name,oldValue,value);
                 }
                 if(reactiveAttributes.has(name)) this.#reactiveCallback();
                 if(sharedAttributes.has(name)) {
-                    if(isolated) {
-                        window.postMessage(JSON.stringify(["shareAttribute",name,value]),"*");
-                    } else {
-                        instances.forEach((instance) => {
-                            instance.setAttribute(name,value);
-                        })
-                    }
+                    if(isolated) window.postMessage(JSON.stringify(["shareAttribute",name,value]),"*");
+                    else instances.forEach((instance) => instance.setAttribute(name,value))
                 }
                 if(isolated) window.postMessage(JSON.stringify(["setAttribute",name,value]),"*");
             }
@@ -536,6 +477,23 @@ document.body.appendChild(el);
     return result;
 }
 quickComponent.src = document.currentScript.getAttribute("src");
+quickComponent.createElement = (tagName,attributes={},appendTo) => {
+    const el = document.createElement(tagName);
+    Object.entries(attributes).forEach(([key,value]) => {
+        if(typeof(value)!=="string") {
+            try {
+                value = JSON.stringify(value);
+            } catch(e) {
+                value = value + "";
+            }
+        }
+        el.setAttribute(key,value);
+    });
+    if(appendTo) {
+        appendTo.appendChild(el);
+    }
+    return el;
+}
 if(document.currentScript.hasAttribute("component")) {
     const script = document.currentScript,
         isolate = script.hasAttribute("isolate") || undefined,
@@ -543,8 +501,6 @@ if(document.currentScript.hasAttribute("component")) {
         referrerpolicy = script.getAttribute("referrerpolicy") || undefined,
         sandbox = script.getAttribute("sandbox") || undefined;
     let imports = script.getAttribute("import") || '["link","style","script"]';
-    if(imports) {
-        imports = JSON.parse(imports);
-    }
+    if(imports) imports = JSON.parse(imports);
     importComponent(document.currentScript.getAttribute("component"),{as:document.currentScript.getAttribute("as"),import:imports,isolate,allow,referrerpolicy,sandbox})
 }
