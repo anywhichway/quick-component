@@ -68,7 +68,7 @@ async function quickComponent(options) {
             }
         }
     }
-    for(const script of [...dom.body.querySelectorAll('script[src]')]) {
+    for(const script of [...dom.body.querySelectorAll('script[src^="."]')]) {
         const src = new URL(script.getAttribute("src"),href).href;
         script.removeAttribute("src");
         const text = await fetch(src).then((response) => response.text());
@@ -182,14 +182,20 @@ async function quickComponent(options) {
             for(const item of this.shadowRoot.scripts) {
                 const {script,replacement} = item;
                 await new Promise((resolve) => {
-                    const src = replacement.getAttribute("src"),
-                        type = replacement.getAttribute("type"),
-                        listener = () => {
+                    const src = replacement.getAttribute("src");
+                    if(src) {
+                        replacement.addEventListener("load",() => {
+                            replacement.remove();
+                            resolve();
+                        });
+                    } else {
+                        const listener = () => {
                             replacement.remove();
                             this.removeEventListener("scriptExecuted",listener);
                             resolve();
                         };
-                    this.addEventListener("scriptExecuted",listener);
+                        this.addEventListener("scriptExecuted",listener);
+                    }
                     if(script) script.replaceWith(replacement);
                     else this.appendChild(replacement);
                 })

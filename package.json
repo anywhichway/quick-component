@@ -1,0 +1,26 @@
+{
+  "name": "@anywhichway/quick-component",
+  "version": "0.0.10",
+  "description": "A small utility for rapidly creating remotely loadable, on-demand, isolatable web components",
+  "main": "quick-component.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anywhichway/quick-component.git"
+  },
+  "keywords": [
+    "component",
+    "customelement",
+    "lit-element",
+    "SFC"
+  ],
+  "author": "Simon Y. Blackwell",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/anywhichway/quick-component/issues"
+  },
+  "homepage": "https://github.com/anywhichway/quick-component#readme"
+}
+

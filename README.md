@@ -43,6 +43,8 @@ To be written.
 
 # Version History (reverse chronological order)
 
+2022-09-25 v0.0.10 Optimized for third-party libraries loading.
+
 2022-09-25 v0.0.9 Removed excess code. Eliminated memory leak from event handler.
 
 2022-09-25 v0.0.8 Optimized to reduce frequency of loading component scripts.
