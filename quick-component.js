@@ -179,27 +179,19 @@ async function quickComponent(options) {
         }
         async connectedCallback() {
             // process the scripts collected in the constructor
-            //let item;
             for(const item of this.shadowRoot.scripts) {
                 const {script,replacement} = item;
                 await new Promise((resolve) => {
                     const src = replacement.getAttribute("src"),
-                        type = replacement.getAttribute("type");
+                        type = replacement.getAttribute("type"),
+                        listener = () => {
+                            replacement.remove();
+                            this.removeEventListener("scriptExecuted",listener);
+                            resolve();
+                        };
+                    this.addEventListener("scriptExecuted",listener);
                     if(script) script.replaceWith(replacement);
                     else this.appendChild(replacement);
-                    if(src) {
-                        this.addEventListener("scriptExecuted",() => {
-                            replacement.remove();
-                            resolve();
-                        });
-                    } else {
-                        //replacement.remove();
-                        //resolve();
-                        this.addEventListener("scriptExecuted",() => {
-                            replacement.remove();
-                            resolve();
-                        });
-                    }
                 })
             }
             const instance = [...instances][0];
