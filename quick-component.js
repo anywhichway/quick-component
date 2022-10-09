@@ -16,8 +16,8 @@ if(typeof(currentComponent)==="undefined") {
 
 async function importComponent(url, options={}) {
     url = new URL(url, document.baseURI);
-    let as = options.as;
-    let filename = url.pathname.split("/").pop();
+    let as = options.as,
+        filename = url.pathname.split("/").pop();
     // remove version info
     if(filename.includes("@")) filename = filename.substring(0,filename.indexOf("@"));
     if(!as) {
@@ -37,9 +37,10 @@ async function importComponent(url, options={}) {
     return await quickComponent({html,...options,as,href:url.href});
 }
 async function quickComponent(options) {
-    let {html,as,href,mode="open",isolate,isolated,allow="",referrerpolicy="",sandbox="",} = options;
+    let {html,as,href,mode="open",isolate,isolated,allow="",referrerpolicy="",sandbox="",properties={}} = options;
     let dom = html;
     if(typeof(html)==="string") dom = new DOMParser().parseFromString(html, "text/html");
+    options.extends = dom.body.getAttribute("");
     if(options.import) {
         for(let el of [...dom.head.children]) {
             if(options.import.some((pattern) => {
@@ -94,11 +95,13 @@ async function quickComponent(options) {
             return node;
         };
     let currentNode;
-    class CustomElement extends HTMLElement {
+    const BaseElement = options.extends ? Object.getPrototypeOf(document.createElement(options.extends)).constructor : HTMLElement;
+    class CustomElement extends BaseElement {
         static get tagName() { return as.toUpperCase(); }
         constructor() {
             super();
             instances.add(this);
+            Object.assign(this,properties);
             this.attachShadow({mode:"open"});
             this.shadowRoot.innerHTML = dom.body.innerHTML;
             const scripts = this.shadowRoot.scripts = [];
@@ -151,6 +154,12 @@ async function quickComponent(options) {
         }
         attributeChangedCallback(name, oldValue, newValue) {
             if(this.attributeChanged) this.attributeChanged(name,oldValue,newValue);
+        }
+        cloneNode(deep) {
+            const clone = super.cloneNode(deep),
+                descriptors = Object.getOwnPropertyDescriptors(this);
+            Object.entries(descriptors).forEach(([name,descriptor]) => Object.defineProperty(clone,name,descriptor));
+            return clone;
         }
         compile(node,root=node) {
             const proxy = new Proxy(this,{
@@ -471,7 +480,11 @@ document.body.appendChild(el);
     } else {
         result = CustomElement;
     }
-    customElements.define(as,result);
+    if(options.extends) {
+        customElements.define(as,result,{extends: options.extends});
+    } else {
+        customElements.define(as,result);
+    }
     return result;
 }
 quickComponent.src = document.currentScript.getAttribute("src");
@@ -479,6 +492,12 @@ quickComponent.createElement = (tagName,attributes={},appendTo) => {
     const el = document.createElement(tagName);
     Object.entries(attributes).forEach(([key,value]) => {
         if(typeof(value)!=="string") {
+            if(key==="style") {
+                Object.entries(value).forEach(([key,value]) => {
+                    el.style[key] = value+"";
+                });
+                return;
+            }
             try {
                 value = JSON.stringify(value);
             } catch(e) {
@@ -500,5 +519,5 @@ if(document.currentScript.hasAttribute("component")) {
         sandbox = script.getAttribute("sandbox") || undefined;
     let imports = script.getAttribute("import") || '["link","style","script"]';
     if(imports) imports = JSON.parse(imports);
-    importComponent(document.currentScript.getAttribute("component"),{as:document.currentScript.getAttribute("as"),import:imports,isolate,allow,referrerpolicy,sandbox})
+    importComponent(script.getAttribute("component"),{as:script.getAttribute("as"),extends:script.getAttribute("extends"),import:imports,isolate,allow,referrerpolicy,sandbox})
 }

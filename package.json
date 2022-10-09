@@ -1,6 +1,6 @@
 {
   "name": "@anywhichway/quick-component",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "A small utility for rapidly creating remotely loadable, on-demand, isolatable web components",
   "main": "quick-component.js",
   "scripts": {

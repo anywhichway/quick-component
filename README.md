@@ -10,8 +10,10 @@ The easiest way to use `@anywhichway/quick-component` is to load both it and the
         component="https://cdn.jsdelivr.net/npm/@anywhichway/repl-host@0.0.4"></script>
 ```
 
-By default, the tag name will be the file or terminal directory name of the component without a version number. You can
-provide an alternate tag with the 'as' attribute:
+If you are using JSDelivr, by default the tag name will be the file or terminal directory name of the component without a version number. Component versioning is 
+currently only supported for JSDeliver.
+
+You can provide an alternate tag with the 'as' attribute:
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/@anywhichway/quick-component.js@0.0.5" 
@@ -42,6 +44,8 @@ To be written.
 To be written.
 
 # Version History (reverse chronological order)
+
+2022-10-09 v0.0.11 Added support for subclassing standard HTML tags.
 
 2022-09-25 v0.0.10 Optimized for third-party libraries loading.
 
