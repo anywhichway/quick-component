@@ -45,6 +45,8 @@ To be written.
 
 # Version History (reverse chronological order)
 
+2022-10-11 v0.0.12 Prevent infinite loops when innerHTML is changed to same value.
+
 2022-10-09 v0.0.11 Added support for subclassing standard HTML tags.
 
 2022-09-25 v0.0.10 Optimized for third-party libraries loading.

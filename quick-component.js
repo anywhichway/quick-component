@@ -222,6 +222,9 @@ async function quickComponent(options) {
             const desc = Object.getOwnPropertyDescriptor(Element.prototype,"innerHTML");
             Object.defineProperty(this,"innerHTML",{
                 set(value) {
+                    if(value===desc.get.call(this)) {
+                        return true;
+                    }
                     desc.set.call(this,value);
                     if(this.render) {
                         this.render();
