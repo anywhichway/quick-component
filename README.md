@@ -45,7 +45,12 @@ To be written.
 
 # Version History (reverse chronological order)
 
-2022-10-11 v0.0.12 Prevent infinite loops when innerHTML is changed to same value.
+2022-11-27 v0.0.14 Added error handling for defining a component twice
+
+2022-10-13 v0.0.13 Added runtime debug support. Removed `isCustomelement()` use `customElements.get(tagName)` instead.
+
+2022-10-11 v0.0.12 Prevent infinite loops when innerHTML is changed to same value. Added ability to pass in extra
+properties when defining component.
 
 2022-10-09 v0.0.11 Added support for subclassing standard HTML tags.
 

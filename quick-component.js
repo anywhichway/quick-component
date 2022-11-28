@@ -486,7 +486,11 @@ document.body.appendChild(el);
     if(options.extends) {
         customElements.define(as,result,{extends: options.extends});
     } else {
-        customElements.define(as,result);
+        try {
+            customElements.define(as,result);
+        } catch(e) {
+            // will throw if defining twice, just ignore
+        }
     }
     return result;
 }
